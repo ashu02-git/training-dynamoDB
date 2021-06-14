@@ -1,170 +1,251 @@
 const express = require('express');
 const app = express();
-const sqlite3 = require('sqlite3');
 const path = require('path');
 const bodyParser = require('body-parser');
 const { send } = require('process');
+const AWS = require('aws-sdk');
+const { v4: uuidv4 } = require('uuid');
 
-const dbPath = 'app/db/databese.sqlite3';
+AWS.config.update({
+  endpoint: 'http://localhost:8000',
+  region: 'us-west-2',
+  accessKeyId: 'fakeMyKeyId',
+  secretAccessKey: 'fakeSecretAccessKey',
+});
+
+const dynamodb = new AWS.DynamoDB();
+const docClient = new AWS.DynamoDB.DocumentClient();
 
 // リクエストのbodyをパースする設定
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-// publicディレクトリを性的ファイル群のルートディレクトリとして設定
+// publicディレクトリを静的ファイル群のルートディレクトリとして設定
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Get all users
 app.get('/api/v1/users', (req, res) => {
-  // Connect database
-  const db = new sqlite3.Database(dbPath);
+  const params = {
+    TableName: 'Users',
+  };
 
-  db.all('SELECT * FROM users', (err, rows) => {
-    res.json(rows);
+  // Check if table exists
+  dynamodb.describeTable(params, (err, data) => {
+    if (err) {
+      // Create Users table
+      const params = {
+        TableName: 'Users',
+        AttributeDefinitions: [
+          {
+            AttributeName: 'id',
+            AttributeType: 'S',
+          },
+        ],
+        KeySchema: [
+          {
+            AttributeName: 'id',
+            KeyType: 'HASH',
+          },
+        ],
+        ProvisionedThroughput: {
+          ReadCapacityUnits: 1,
+          WriteCapacityUnits: 1,
+        },
+      };
+      dynamodb.createTable(params, (err, data) => {
+        if (err) {
+          console.log(err);
+        } else {
+          console.log(data);
+        }
+      });
+    } else {
+      // Get all users
+      docClient.scan(params, (err, data) => {
+        if (err) {
+          console.log(err);
+        } else {
+          res.json(data.Items);
+        }
+      });
+    }
   });
-
-  db.close();
 });
 
 // Get a user
 app.get('/api/v1/users/:id', (req, res) => {
-  // Connect database
-  const db = new sqlite3.Database(dbPath);
   const id = req.params.id;
+  const params = {
+    TableName: 'Users',
+    Key: { id },
+  };
 
-  db.get(`SELECT * FROM users WHERE id = ${id}`, (err, row) => {
-    if (!row) {
-      res.status(404).send({ error: 'Not Found!' });
+  docClient.get(params, function (err, data) {
+    if (err) {
+      console.log(err);
     } else {
-      res.status(200).json(row);
+      console.log(data);
+      res.json(data.Item);
     }
   });
-
-  db.close();
 });
 
 // Search users matching keyword
 app.get('/api/v1/search', (req, res) => {
-  // Connect database
-  const db = new sqlite3.Database(dbPath);
   if (req.query.name) {
-    const keyword = req.query.name;
-    db.all(
-      `SELECT * FROM users WHERE name LIKE "%${keyword}%"`,
-      (err, rows) => {
-        res.json(rows);
-      }
-    );
-  } else {
-    const keyword = req.query.mail;
-    db.all(
-      `SELECT * FROM users WHERE mail LIKE "%${keyword}%"`,
-      (err, rows) => {
-        res.json(rows);
-      }
-    );
-  }
-
-  db.close();
-});
-
-const run = async (sql, db) => {
-  return new Promise((resolve, reject) => {
-    db.run(sql, (err) => {
+    const query = req.query.name;
+    const params = {
+      TableName: 'Users',
+      ScanFilter: {
+        userName: {
+          ComparisonOperator: 'CONTAINS',
+          AttributeValueList: [`${query}`],
+        },
+      },
+    };
+    docClient.scan(params, (err, data) => {
       if (err) {
-        return reject(err);
+        console.log(err);
       } else {
-        return resolve();
+        console.log(data.Items);
+        res.json(data.Items);
       }
     });
-  });
-};
+  } else {
+    const query = req.query.mail;
+    const params = {
+      TableName: 'Users',
+      ScanFilter: {
+        mail: {
+          ComparisonOperator: 'CONTAINS',
+          AttributeValueList: [`${query}`],
+        },
+      },
+    };
+    docClient.scan(params, (err, data) => {
+      if (err) {
+        console.log(err);
+      } else {
+        console.log(data.Items);
+        res.json(data.Items);
+      }
+    });
+  }
+});
 
 // Create a new user
 app.post('/api/v1/users', async (req, res) => {
-  if (!req.body.name || req.body.name === '') {
+  if (!req.body.userName || req.body.userName === '') {
     res.status(400).send({ error: 'ユーザ名が指定されていません。' });
   } else {
-    // Connect DB
-    const db = new sqlite3.Database(dbPath);
-
-    const name = req.body.name;
+    const userName = req.body.userName;
     const mail = req.body.mail ? req.body.mail : '';
     const profile = req.body.profile ? req.body.profile : '';
     const dateOfBirth = req.body.date_of_birth ? req.body.date_of_birth : '';
 
-    try {
-      await run(
-        `INSERT INTO users (name, mail, profile, date_of_birth) VALUES ("${name}","${mail}", "${profile}", "${dateOfBirth}")`,
-        db
-      );
-      res.status(201).send({ message: '新規ユーザーを作成しました。' });
-    } catch (e) {
-      res.status(500).send({ error: e });
-    }
-
-    db.close();
+    const params = {
+      TableName: 'Users',
+      Item: {
+        id: uuidv4(),
+        userName: userName,
+        mail: mail,
+        profile: profile,
+        date_of_birth: dateOfBirth,
+        created_date: new Date().toLocaleString('ja', {
+          timeZone: 'Asia/Tokyo',
+        }),
+        updated_date: new Date().toLocaleString('ja', {
+          timeZone: 'Asia/Tokyo',
+        }),
+      },
+    };
+    docClient.put(params, (err, data) => {
+      if (err) {
+        console.log(err);
+      } else {
+        res.status(200).send({ message: 'ユーザー情報を更新しました' });
+      }
+    });
   }
 });
 
 // Update user data
 app.put('/api/v1/users/:id', async (req, res) => {
-  if (!req.body.name || req.body.name === '') {
+  if (!req.body.Item.userName || req.body.Item.userName === '') {
     res.status(400).send({ error: 'ユーザ名が指定されていません。' });
   } else {
-    // Connect DB
-    const db = new sqlite3.Database(dbPath);
     const id = req.params.id;
-
-    // 現在のユーザ情報を取得する
-    db.get(`SELECT * FROM users WHERE id = ${id}`, async (err, row) => {
-      if (!row) {
-        res.status(404).send({ error: '指定されたユーザーが見つかりません。' });
+    const params = {
+      TableName: 'Users',
+      Key: { id },
+    };
+    // Get current user
+    docClient.get(params, function (err, data) {
+      if (err) {
+        res.status(404).send({ err: '指定されたユーザーが見つかりません。' });
       } else {
-        const name = req.body.name ? req.body.name : row.name;
-        const mail = req.body.mail ? req.body.mail : row.mail;
-        const profile = req.body.profile ? req.body.profile : row.profile;
-        const dateOfBirth = req.body.date_of_birth
-          ? req.body.date_of_birth
-          : row.date_of_birth;
-
-        try {
-          await run(
-            `UPDATE users SET name="${name}", mail="${mail}", profile="${profile}", date_of_birth="${dateOfBirth}", updated_date = CURRENT_TIMESTAMP WHERE id = ${id}`,
-            db
-          );
-          res.status(200).send({ message: 'ユーザー情報を更新しました' });
-        } catch (e) {
-          res.status(500).send({ error: e });
-        }
+        console.log(data);
+        console.log(req.body);
+        // Define params
+        const userName = req.body.Item.userName
+          ? req.body.Item.userName
+          : data.Item.userName;
+        const mail = req.body.Item.mail ? req.body.Item.mail : data.Item.mail;
+        const profile = req.body.Item.profile
+          ? req.body.Item.profile
+          : data.Item.profile;
+        const dateOfBirth = req.body.Item.date_of_birth
+          ? req.body.Item.date_of_birth
+          : data.Item.date_of_birth;
+        const params = {
+          TableName: 'Users',
+          Key: { id },
+          UpdateExpression:
+            'set  userName = :u, mail = :m, profile = :p, date_of_birth = :d, updated_date = :up',
+          ExpressionAttributeValues: {
+            ':u': userName,
+            ':m': mail,
+            ':p': profile,
+            ':d': dateOfBirth,
+            ':up': new Date().toLocaleString('ja', { timeZone: 'Asia/Tokyo' }),
+          },
+        };
+        // Update data
+        docClient.update(params, (err, data) => {
+          if (err) {
+            res.status(500).send({ err });
+          } else {
+            res.status(200).send({ message: 'ユーザー情報を更新しました' });
+          }
+        });
       }
+      console.log(data);
     });
-
-    db.close();
   }
 });
 
 // Delete user data
 app.delete('/api/v1/users/:id', async (req, res) => {
-  // Connect DB
-  const db = new sqlite3.Database(dbPath);
+  // Get current user
   const id = req.params.id;
+  const params = {
+    TableName: 'Users',
+    Key: { id },
+  };
 
-  // 現在のユーザ情報を取得する
-  db.get(`SELECT * FROM users WHERE id = ${id}`, async (err, row) => {
-    if (!row) {
-      res.status(404).send({ error: '指定されたユーザーが見つかりません。' });
+  docClient.get(params, function (err, data) {
+    if (err) {
+      res.status(404).send({ err: '指定されたユーザーが見つかりません。' });
     } else {
-      try {
-        await run(`DELETE FROM users WHERE id = ${id}`, db);
-        res.status(200).send({ message: 'ユーザを削除しました！' });
-      } catch (e) {
-        res.status(500).send({ error: e });
-      }
+      docClient.delete(params, function (err, data) {
+        if (err) {
+          res.status(500).send({ error: 'error' });
+        } else {
+          res.status(200).send({ message: 'ユーザー情報を削除しました' });
+        }
+      });
     }
   });
-
-  db.close();
 });
 
 // Get following users

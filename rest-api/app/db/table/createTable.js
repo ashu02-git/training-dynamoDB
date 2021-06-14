@@ -12,7 +12,7 @@ const params = {
   AttributeDefinitions: [
     {
       AttributeName: 'id',
-      AttributeType: 'S',
+      AttributeType: 'N',
     },
   ],
   KeySchema: [

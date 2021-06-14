@@ -8,16 +8,17 @@ AWS.config.update({
 });
 const docClient = new AWS.DynamoDB.DocumentClient();
 
-const params = {
-  TableName: 'Post',
+let params = {
+  TableName: 'Users',
   Key: {
-    id: '63e722ba-6d08-4a4c-a03d-d47ce026f3bd',
+    id: 3,
   },
-  UpdateExpression: 'set title = :t, body = :b',
+  UpdateExpression: 'set userName = :u, profile = :p',
   ExpressionAttributeValues: {
-    ':t': 'update title',
-    ':b': 'update body',
+    ':u': '金太郎',
+    ':p': 'update profile',
   },
+  ReturnValues: 'UPDATED_NEW',
 };
 
 docClient.update(params, (err, data) => {
