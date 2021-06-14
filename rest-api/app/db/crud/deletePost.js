@@ -9,9 +9,9 @@ AWS.config.update({
 const docClient = new AWS.DynamoDB.DocumentClient();
 
 const params = {
-  TableName: 'Post',
+  TableName: 'Users',
   Key: {
-    id: 'cd001a61-85bf-477b-808c-d9416e04abc3',
+    id: 3,
   },
 };
 

@@ -45,7 +45,7 @@ const usersModule = (() => {
         const user = users[i];
         const body = `<tr>
                         <td>${user.id}</td>
-                        <td><a href='following.html?uid=${user.id}'>${user.name}</a></td>
+                        <td><a href='following.html?uid=${user.id}'>${user.userName}</a></td>
                         <td>${user.mail}</td>
                         <td>${user.profile}</td>
                         <td>${user.date_of_birth}</td>
@@ -59,14 +59,14 @@ const usersModule = (() => {
       }
     },
     createUser: async () => {
-      const name = document.getElementById('name').value;
+      const userName = document.getElementById('userName').value;
       const mail = document.getElementById('mail').value;
       const profile = document.getElementById('profile').value;
       const dateOfBirth = document.getElementById('date-of-birth').value;
 
       // リクエストのbody
       const body = {
-        name: name,
+        userName: userName,
         mail: mail,
         profile: profile,
         date_of_birth: dateOfBirth,
@@ -84,23 +84,25 @@ const usersModule = (() => {
       const res = await fetch(BASE_URL + '/' + uid);
       const resJson = await res.json();
 
-      document.getElementById('name').value = resJson.name;
+      document.getElementById('userName').value = resJson.userName;
       document.getElementById('mail').value = resJson.mail;
       document.getElementById('profile').value = resJson.profile;
       document.getElementById('date-of-birth').value = resJson.date_of_birth;
     },
     saveUser: async (uid) => {
-      const name = document.getElementById('name').value;
+      const userName = document.getElementById('userName').value;
       const mail = document.getElementById('mail').value;
       const profile = document.getElementById('profile').value;
       const dateOfBirth = document.getElementById('date-of-birth').value;
 
       // リクエストのbody
       const body = {
-        name: name,
-        mail: mail,
-        profile: profile,
-        date_of_birth: dateOfBirth,
+        Item:{
+          userName: userName,
+          mail: mail,
+          profile: profile,
+          date_of_birth: dateOfBirth,
+        }
       };
 
       const res = await fetch(BASE_URL + '/' + uid, {
@@ -133,7 +135,7 @@ const usersModule = (() => {
         const followingUser = followingUsers[i];
         const body = `<tr>
                         <td>${followingUser.id}</td>
-                        <td><a href='following.html?uid=${followingUser.id}'>${followingUser.name}</a></td>
+                        <td><a href='following.html?uid=${followingUser.id}'>${followingUser.userName}</a></td>
                         <td>${followingUser.mail}</td>
                         <td>${followingUser.profile}</td>
                         <td>${followingUser.date_of_birth}</td>

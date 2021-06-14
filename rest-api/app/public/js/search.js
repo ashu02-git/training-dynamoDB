@@ -20,7 +20,7 @@ const searchModule = (() => {
         const user = result[i];
         body += `<tr>
                   <td>${user.id}</td>
-                  <td>${user.name}</td>
+                  <td>${user.userName}</td>
                   <td>${user.mail}</td>
                   <td>${user.profile}</td>
                   <td>${user.date_of_birth}</td>

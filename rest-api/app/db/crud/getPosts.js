@@ -8,7 +8,7 @@ AWS.config.update({
 const docClient = new AWS.DynamoDB.DocumentClient();
 
 const params = {
-  TableName: 'Post',
+  TableName: 'Users',
 };
 
 docClient.scan(params, (err, data) => {
