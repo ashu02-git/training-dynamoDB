@@ -106,7 +106,6 @@ app.get('/api/v1/search', (req, res) => {
       if (err) {
         console.log(err);
       } else {
-        console.log(data.Items);
         res.json(data.Items);
       }
     });
@@ -125,7 +124,6 @@ app.get('/api/v1/search', (req, res) => {
       if (err) {
         console.log(err);
       } else {
-        console.log(data.Items);
         res.json(data.Items);
       }
     });
