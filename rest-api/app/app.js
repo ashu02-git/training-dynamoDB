@@ -80,12 +80,11 @@ app.get('/api/v1/users/:id', (req, res) => {
     Key: { id },
   };
 
-  docClient.get(params, function (err, data) {
-    if (err) {
-      console.log(err);
+  docClient.get(params, (err, data) => {
+    if (!data.Item) {
+      res.status(404).send({ error: 'Not Found!' });
     } else {
-      console.log(data);
-      res.json(data.Item);
+      res.status(200).json(data.Item);
     }
   });
 });
@@ -137,9 +136,11 @@ app.get('/api/v1/search', (req, res) => {
 app.post('/api/v1/users', async (req, res) => {
   if (!req.body.userName || req.body.userName === '') {
     res.status(400).send({ error: 'ユーザ名が指定されていません。' });
+  } else if (!req.body.mail || req.body.mail === '') {
+    res.status(400).send({ error: 'メールアドレスが指定されていません。' });
   } else {
     const userName = req.body.userName;
-    const mail = req.body.mail ? req.body.mail : '';
+    const mail = req.body.mail;
     const profile = req.body.profile ? req.body.profile : '';
     const dateOfBirth = req.body.date_of_birth ? req.body.date_of_birth : '';
 
@@ -147,9 +148,9 @@ app.post('/api/v1/users', async (req, res) => {
       TableName: 'Users',
       Item: {
         id: uuidv4(),
-        userName: userName,
-        mail: mail,
-        profile: profile,
+        userName,
+        mail,
+        profile,
         date_of_birth: dateOfBirth,
         created_date: new Date().toLocaleString('ja', {
           timeZone: 'Asia/Tokyo',
@@ -159,11 +160,12 @@ app.post('/api/v1/users', async (req, res) => {
         }),
       },
     };
+
     docClient.put(params, (err, data) => {
       if (err) {
-        console.log(err);
+        res.status(500).send({ message: 'error' });
       } else {
-        res.status(200).send({ message: 'ユーザー情報を更新しました' });
+        res.status(201).send({ message: 'ユーザー情報を登録しました' });
       }
     });
   }
@@ -171,31 +173,29 @@ app.post('/api/v1/users', async (req, res) => {
 
 // Update user data
 app.put('/api/v1/users/:id', async (req, res) => {
-  if (!req.body.Item.userName || req.body.Item.userName === '') {
+  if (!req.body.userName || req.body.userName === '') {
     res.status(400).send({ error: 'ユーザ名が指定されていません。' });
+  } else if (!req.body.mail || req.body.mail === '') {
+    res.status(400).send({ error: 'メールアドレスが指定されていません。' });
   } else {
     const id = req.params.id;
     const params = {
       TableName: 'Users',
       Key: { id },
     };
-    // Get current user
-    docClient.get(params, function (err, data) {
-      if (err) {
+    // Get current user data
+    docClient.get(params, (err, data) => {
+      if (!data.Item) {
         res.status(404).send({ err: '指定されたユーザーが見つかりません。' });
       } else {
-        console.log(data);
-        console.log(req.body);
         // Define params
-        const userName = req.body.Item.userName
-          ? req.body.Item.userName
+        const userName = req.body.userName
+          ? req.body.userName
           : data.Item.userName;
-        const mail = req.body.Item.mail ? req.body.Item.mail : data.Item.mail;
-        const profile = req.body.Item.profile
-          ? req.body.Item.profile
-          : data.Item.profile;
-        const dateOfBirth = req.body.Item.date_of_birth
-          ? req.body.Item.date_of_birth
+        const mail = req.body.mail ? req.body.mail : data.Item.mail;
+        const profile = req.body.profile ? req.body.profile : data.Item.profile;
+        const dateOfBirth = req.body.date_of_birth
+          ? req.body.date_of_birth
           : data.Item.date_of_birth;
         const params = {
           TableName: 'Users',
@@ -213,13 +213,12 @@ app.put('/api/v1/users/:id', async (req, res) => {
         // Update data
         docClient.update(params, (err, data) => {
           if (err) {
-            res.status(500).send({ err });
+            res.status(500).send({ error: 'error' });
           } else {
             res.status(200).send({ message: 'ユーザー情報を更新しました' });
           }
         });
       }
-      console.log(data);
     });
   }
 });
@@ -233,11 +232,11 @@ app.delete('/api/v1/users/:id', async (req, res) => {
     Key: { id },
   };
 
-  docClient.get(params, function (err, data) {
-    if (err) {
+  docClient.get(params, (err, data) => {
+    if (!data.Item) {
       res.status(404).send({ err: '指定されたユーザーが見つかりません。' });
     } else {
-      docClient.delete(params, function (err, data) {
+      docClient.delete(params, (err, data) => {
         if (err) {
           res.status(500).send({ error: 'error' });
         } else {
@@ -246,26 +245,6 @@ app.delete('/api/v1/users/:id', async (req, res) => {
       });
     }
   });
-});
-
-// Get following users
-app.get('/api/v1/users/:id/following', (req, res) => {
-  // Connect database
-  const db = new sqlite3.Database(dbPath);
-  const id = req.params.id;
-
-  db.all(
-    `SELECT * FROM following LEFT JOIN users ON following.followed_id = users.id WHERE following_id = ${id};`,
-    (err, rows) => {
-      if (!rows) {
-        res.status(404).send({ error: 'Not Found!' });
-      } else {
-        res.status(200).json(rows);
-      }
-    }
-  );
-
-  db.close();
 });
 
 const port = process.env.PORT || 3000;

@@ -36,11 +36,6 @@ const indexModule = (() => {
 
       break;
 
-    case '/following.html':
-      return usersModule.fetchFollowingUsers(uid);
-
-      break;
-
     default:
       break;
   }

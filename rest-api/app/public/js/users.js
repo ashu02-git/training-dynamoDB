@@ -45,7 +45,7 @@ const usersModule = (() => {
         const user = users[i];
         const body = `<tr>
                         <td>${user.id}</td>
-                        <td><a href='following.html?uid=${user.id}'>${user.userName}</a></td>
+                        <td>${user.userName}</td>
                         <td>${user.mail}</td>
                         <td>${user.profile}</td>
                         <td>${user.date_of_birth}</td>
@@ -65,12 +65,7 @@ const usersModule = (() => {
       const dateOfBirth = document.getElementById('date-of-birth').value;
 
       // リクエストのbody
-      const body = {
-        userName: userName,
-        mail: mail,
-        profile: profile,
-        date_of_birth: dateOfBirth,
-      };
+      const body = { userName, mail, profile, date_of_birth: dateOfBirth };
 
       const res = await fetch(BASE_URL, {
         method: 'POST',
@@ -96,14 +91,7 @@ const usersModule = (() => {
       const dateOfBirth = document.getElementById('date-of-birth').value;
 
       // リクエストのbody
-      const body = {
-        Item:{
-          userName: userName,
-          mail: mail,
-          profile: profile,
-          date_of_birth: dateOfBirth,
-        }
-      };
+      const body = { userName, mail, profile, date_of_birth: dateOfBirth };
 
       const res = await fetch(BASE_URL + '/' + uid, {
         method: 'PUT',
@@ -125,27 +113,6 @@ const usersModule = (() => {
         });
 
         return handleError(res);
-      }
-    },
-    fetchFollowingUsers: async (uid) => {
-      const res = await fetch(BASE_URL + '/' + uid + '/following');
-      const followingUsers = await res.json();
-
-      for (let i in followingUsers) {
-        const followingUser = followingUsers[i];
-        const body = `<tr>
-                        <td>${followingUser.id}</td>
-                        <td><a href='following.html?uid=${followingUser.id}'>${followingUser.userName}</a></td>
-                        <td>${followingUser.mail}</td>
-                        <td>${followingUser.profile}</td>
-                        <td>${followingUser.date_of_birth}</td>
-                        <td>${followingUser.created_date}</td>
-                        <td>${followingUser.updated_date}</td>
-                        <td><a href='edit.html?uid=${followingUser.id}'>編集</a></td>
-                      </tr>`;
-        document
-          .getElementById('users-list')
-          .insertAdjacentHTML('beforeend', body);
       }
     },
   };
